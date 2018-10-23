@@ -24,293 +24,45 @@ const prefix = "!";
 /////////////////////////
 ////////////////////////
 
-client.on('message', async msg =>{
-	if (msg.author.bot) return undefined;
-    if (!msg.content.startsWith(prefix)) return undefined;
-    
-    let args = msg.content.split(' ');
-
-	let command = msg.content.toLowerCase().split(" ")[0];
-	command = command.slice(prefix.length)
-
-    if(command === `ping`) {
-    let embed = new Discord.RichEmbed()
-    .setColor(3447003)
-    .setTitle("Pong!!")
-    .setDescription(`${client.ping} ms,`)
-    .setFooter(`Requested by | ${msg.author.tag}`);
-    msg.delete().catch(O_o=>{})
-    msg.channel.send(embed);
-    }
-});
-/////////////////////////
-////////////////////////
-//////////////////////
-client.on('message', async msg =>{
-	if (msg.author.bot) return undefined;
-    if (!msg.content.startsWith(prefix)) return undefined;
-    
-    let args = msg.content.split(' ');
-
-	let command = msg.content.toLowerCase().split(" ")[0];
-	command = command.slice(prefix.length)
-
-    if(command === `avatar`){
-	if(msg.channel.type === 'dm') return msg.channel.send("Nope Nope!! u can't use avatar command in DMs (:")
-        let mentions = msg.mentions.members.first()
-        if(!mentions) {
-          let sicon = msg.author.avatarURL
-          let embed = new Discord.RichEmbed()
-          .setImage(msg.author.avatarURL)
-          .setColor("#5074b3")
-          msg.channel.send({embed})
-        } else {
-          let sicon = mentions.user.avatarURL
-          let embed = new Discord.RichEmbed()
-          .setColor("#5074b3")
-          .setImage(sicon)
-          msg.channel.send({embed})
-        }
-    };
-});
-/////////////////////////
-////////////////////////
-//////////////////////
-/////////////////////////
-////////////////////////
-//////////////////////
-
-/////////////////////////
-////////////////////////
-//////////////////////
-/////////////////////////
-////////////////////////
-//////////////////////
-client.on('message', async msg => { 
-	if (msg.author.bot) return undefined;
-    if (!msg.content.startsWith(prefix)) return undefined;
-    
-    const args = msg.content.split(' ');
-	const searchString = args.slice(1).join(' ');
-    
-	const url = args[1] ? args[1].replace(/<(.+)>/g, '$1') : '';
-	const serverQueue = queue.get(msg.guild.id);
-
-	let command = msg.content.toLowerCase().split(" ")[0];
-	command = command.slice(prefix.length)
-
-	if (command === `play`) {
-		const voiceChannel = msg.member.voiceChannel;
-        
-        if (!voiceChannel) return msg.channel.send("I can't find you in any voice channel!");
-        
-        const permissions = voiceChannel.permissionsFor(msg.client.user);
-        
-        if (!permissions.has('CONNECT')) {
-
-			return msg.channel.send("I don't have enough permissions to join your voice channel!");
-        }
-        
-		if (!permissions.has('SPEAK')) {
-
-			return msg.channel.send("I don't have enough permissions to speak in your voice channel!");
-		}
-
-		if (!permissions.has('EMBED_LINKS')) {
-
-			return msg.channel.sendMessage("I don't have enough permissions to insert a URLs!")
-		}
-
-		if (url.match(/^https?:\/\/(www.youtube.com|youtube.com)\/playlist(.*)$/)) {
-
-			const playlist = await youtube.getPlaylist(url);
-            const videos = await playlist.getVideos();
-            
-
-			for (const video of Object.values(videos)) {
-                
-                const video2 = await youtube.getVideoByID(video.id); 
-                await handleVideo(video2, msg, voiceChannel, true); 
-            }
-			return msg.channel.send(`**${playlist.title}**, Just added to the queue!`);
-		} else {
-
-			try {
-
-                var video = await youtube.getVideo(url);
-                
-			} catch (error) {
-				try {
-
-					var videos = await youtube.searchVideos(searchString, 5);
-					let index = 0;
-                    const embed1 = new Discord.RichEmbed()
-                    .setTitle(":mag_right:  YouTube Search Results :")
-                    .setDescription(`
-                    ${videos.map(video2 => `${++index}. **${video2.title}**`).join('\n')}`)
-                    
-					.setColor("#f7abab")
-					msg.channel.sendEmbed(embed1).then(message =>{message.delete(20000)})
-					
-/////////////////					
-					try {
-
-						var response = await msg.channel.awaitMessages(msg2 => msg2.content > 0 && msg2.content < 11, {
-							maxMatches: 1,
-							time: 15000,
-							errors: ['time']
-						});
-					} catch (err) {
-						console.error(err);
-						return msg.channel.send('No one respone a number!!');
-                    }
-                    
-					const videoIndex = parseInt(response.first().content);
-                    var video = await youtube.getVideoByID(videos[videoIndex - 1].id);
-                    
-				} catch (err) {
-
-					console.error(err);
-					return msg.channel.send("I didn't find any results!");
-				}
-			}
-
-            return handleVideo(video, msg, voiceChannel);
-            
-        }
-        
-	} else if (command === `skip`) {
-
-		if (!msg.member.voiceChannel) return msg.channel.send("You Must be in a Voice channel to Run the Music commands!");
-        if (!serverQueue) return msg.channel.send("There is no Queue to skip!!");
-
-		serverQueue.connection.dispatcher.end('Ok, skipped!');
-        return undefined;
-        
-	} else if (command === `stop`) {
-
-		if (!msg.member.voiceChannel) return msg.channel.send("You Must be in a Voice channel to Run the Music commands!");
-        if (!serverQueue) return msg.channel.send("There is no Queue to stop!!");
-        
-		serverQueue.songs = [];
-		serverQueue.connection.dispatcher.end('Ok, stopped & disconnected from your Voice channel');
-        return undefined;
-        
-	} else if (command === `vol`) {
-
-		if (!msg.member.voiceChannel) return msg.channel.send("You Must be in a Voice channel to Run the Music commands!");
-		if (!serverQueue) return msg.channel.send('You only can use this command while music is playing!');
-        if (!args[1]) return msg.channel.send(`The bot volume is **${serverQueue.volume}**`);
-        
-		serverQueue.volume = args[1];
-        serverQueue.connection.dispatcher.setVolumeLogarithmic(args[1] / 50);
-        
-        return msg.channel.send(`Volume Now is **${args[1]}**`);
-
-	} else if (command === `np`) {
-
-		if (!serverQueue) return msg.channel.send('There is no Queue!');
-		const embedNP = new Discord.RichEmbed()
-	    .setDescription(`Now playing **${serverQueue.songs[0].title}**`)
-        return msg.channel.sendEmbed(embedNP);
-        
-	} else if (command === `queue`) {
-		
-		if (!serverQueue) return msg.channel.send('There is no Queue!!');
-		let index = 0;
-//	//	//
-		const embedqu = new Discord.RichEmbed()
-        .setTitle("The Queue Songs :")
-        .setDescription(`
-        ${serverQueue.songs.map(song => `${++index}. **${song.title}**`).join('\n')}
-**Now playing :** **${serverQueue.songs[0].title}**`)
-        .setColor("#f7abab")
-		return msg.channel.sendEmbed(embedqu);
-	} else if (command === `pause`) {
-		if (serverQueue && serverQueue.playing) {
-			serverQueue.playing = false;
-			serverQueue.connection.dispatcher.pause();
-			return msg.channel.send('Ok, paused');
-		}
-		return msg.channel.send('There is no Queue to Pause!');
-	} else if (command === "resume") {
-
-		if (serverQueue && !serverQueue.playing) {
-			serverQueue.playing = true;
-			serverQueue.connection.dispatcher.resume();
-            return msg.channel.send('Ok, resumed!');
-            
-		}
-		return msg.channel.send('Queue is empty!');
-	}
-
-	return undefined;
-});
-
-async function handleVideo(video, msg, voiceChannel, playlist = false) {
-	const serverQueue = queue.get(msg.guild.id);
-	console.log(video);
-	
-
-	const song = {
-		id: video.id,
-		title: Util.escapeMarkdown(video.title),
-		url: `https://www.youtube.com/watch?v=${video.id}`
-	};
-	if (!serverQueue) {
-		const queueConstruct = {
-			textChannel: msg.channel,
-			voiceChannel: voiceChannel,
-			connection: null,
-			songs: [],
-			volume: 5,
-			playing: true
-		};
-		queue.set(msg.guild.id, queueConstruct);
-
-		queueConstruct.songs.push(song);
-
-		try {
-			var connection = await voiceChannel.join();
-			queueConstruct.connection = connection;
-			play(msg.guild, queueConstruct.songs[0]);
-		} catch (error) {
-			console.error(`I could not join the voice channel: ${error}!`);
-			queue.delete(msg.guild.id);
-			return msg.channel.send(`Can't join this channel: ${error}!`);
-		}
-	} else {
-		serverQueue.songs.push(song);
-		console.log(serverQueue.songs);
-		if (playlist) return undefined;
-		else return msg.channel.send(`**${song.title}**, just added to the queue! `);
-	} 
-	return undefined;
+var prefix = "!!"
+client.on('message', message => {
+  if (message.author.x5bz) return;
+  if (!message.content.startsWith(prefix)) return;
+ 
+  let command = message.content.split(" ")[0];
+  command = command.slice(prefix.length);
+ 
+  let args = message.content.split(" ").slice(1);
+ 
+  if (command == "ban") {
+               if(!message.channel.guild) return message.reply('** This command only for servers**');
+         
+  if(!message.guild.member(message.author).hasPermission("BAN_MEMBERS")) return message.reply("**You Don't Have ` BAN_MEMBERS ` Permission**");
+  if(!message.guild.member(client.user).hasPermission("BAN_MEMBERS")) return message.reply("**I Don't Have ` BAN_MEMBERS ` Permission**");
+  let user = message.mentions.users.first();
+  let reason = message.content.split(" ").slice(2).join(" ");
+  /*let b5bzlog = client.channels.find("name", "5bz-log");
+ 
+  if(!b5bzlog) return message.reply("I've detected that this server doesn't have a 5bz-log text channel.");*/
+  if (message.mentions.users.size < 1) return message.reply("**منشن شخص**");
+  if(!reason) return message.reply ("**اكتب سبب الطرد**");
+  if (!message.guild.member(user)
+  .bannable) return message.reply("**لايمكنني طرد شخص اعلى من رتبتي يرجه اعطاء البوت رتبه عالي**");
+ 
+  message.guild.member(user).ban(7, user);
+ 
+  const banembed = new Discord.RichEmbed()
+  .setAuthor(`BANNED!`, user.displayAvatarURL)
+  .setColor("RANDOM")
+  .setTimestamp()
+  .addField("**User:**",  '**[ ' + `${user.tag}` + ' ]**')
+  .addField("**By:**", '**[ ' + `${message.author.tag}` + ' ]**')
+  .addField("**Reason:**", '**[ ' + `${reason}` + ' ]**')
+  message.channel.send({
+    embed : banembed
+  })
 }
-
-function play(guild, song) {
-	const serverQueue = queue.get(guild.id);
-
-	if (!song) {
-		serverQueue.voiceChannel.leave();
-		queue.delete(guild.id);
-		return;
-	}
-	console.log(serverQueue.songs);
-
-	const dispatcher = serverQueue.connection.playStream(ytdl(song.url))
-		.on('end', reason => {
-			if (reason === 'Stream is not generating quickly enough.') console.log('Song ended.');
-			else console.log(reason);
-			serverQueue.songs.shift();
-			play(guild, serverQueue.songs[0]);
-		})
-		.on('error', error => console.error(error));
-	dispatcher.setVolumeLogarithmic(serverQueue.volume / 5);
-
-	serverQueue.textChannel.send(`**${song.title}**, is now playing!`);
-}
-
+});
 
 client.on('message', message => {
     if (message.content === '$help') {
@@ -330,6 +82,173 @@ client.on('message', message => {
     }
 });
 
+var prefix = "!!"
+client.on('message', message => {
+  if (message.author.x5bz) return;
+  if (!message.content.startsWith(prefix)) return;
+ 
+  let command = message.content.split(" ")[0];
+  command = command.slice(prefix.length);
+ 
+  let args = message.content.split(" ").slice(1);
+ 
+  if (command == "kick") {
+               if(!message.channel.guild) return message.reply('** This command only for servers**');
+         
+  if(!message.guild.member(message.author).hasPermission("KICK_MEMBERS")) return message.reply("**You Don't Have ` KICK_MEMBERS ` Permission**");
+  if(!message.guild.member(client.user).hasPermission("KICK_MEMBERS")) return message.reply("**I Don't Have ` KICK_MEMBERS ` Permission**");
+  let user = message.mentions.users.first();
+  let reason = message.content.split(" ").slice(2).join(" ");
+  /*let b5bzlog = client.channels.find("name", "5bz-log");
+ 
+  if(!b5bzlog) return message.reply("I've detected that this server doesn't have a 5bz-log text channel.");*/
+  if (message.mentions.users.size < 1) return message.reply("**منشن شخص**");
+  if(!reason) return message.reply ("**اكتب سبب الطرد**");
+  if (!message.guild.member(user)
+  .kickable) return message.reply("**لايمكنني طرد شخص اعلى من رتبتي يرجه اعطاء البوت رتبه عالي**");
+ 
+  message.guild.member(user).kick();
+ 
+  const kickembed = new Discord.RichEmbed()
+  .setAuthor(`KICKED!`, user.displayAvatarURL)
+  .setColor("RANDOM")
+  .setTimestamp()
+  .addField("**User:**",  '**[ ' + `${user.tag}` + ' ]**')
+  .addField("**By:**", '**[ ' + `${message.author.tag}` + ' ]**')
+  .addField("**Reason:**", '**[ ' + `${reason}` + ' ]**')
+  message.channel.send({
+    embed : kickembed
+  })
+}
+});
+
+client.on('message', msg => {
+  if (msg.author.bot) return;
+  if (!msg.content.startsWith(prefix)) return;
+  let command = msg.content.split(" ")[0];
+  command = command.slice(prefix.length);
+  let args = msg.content.split(" ").slice(1);
+ 
+    if(command === "clear") {
+        const emoji = client.emojis.find("name", "wastebasket")
+    let textxt = args.slice(0).join("");
+    if(msg.member.hasPermission("MANAGE_MESSAGES")) {
+    if (textxt == "") {
+        msg.delete().then
+    msg.channel.send("***```ضع عدد الرسائل التي تريد مسحها 👌```***").then(m => m.delete(3000));
+} else {
+    msg.delete().then
+    msg.delete().then
+    msg.channel.bulkDelete(textxt);
+        msg.channel.send("```php\nعدد الرسائل التي تم مسحها: " + textxt + "\n```").then(m => m.delete(3000));
+        }    
+    }
+}
+});
+
+client.on('message', message => {
+ 
+    if (message.content === "!!mutechannel") {
+                        if(!message.channel.guild) return message.reply(' This command only for servers');
+ 
+if(!message.member.hasPermission('MANAGE_MESSAGES')) return message.reply(' ليس لديك صلاحيات');
+           message.channel.overwritePermissions(message.guild.id, {
+         SEND_MESSAGES: false
+ 
+           }).then(() => {
+               message.reply("تم تقفيل الشات :white_check_mark: ")
+           });
+             }
+//™¦༺♚ƙἶղց|MaS♚༺¦™#7105
+if (message.content === ".unmutechannel") {
+    if(!message.channel.guild) return message.reply(' This command only for servers');
+ 
+if(!message.member.hasPermission('MANAGE_MESSAGES')) return message.reply('ليس لديك صلاحيات');
+           message.channel.overwritePermissions(message.guild.id, {
+         SEND_MESSAGES: true
+ 
+           }).then(() => {
+               message.reply("تم فتح الشات:white_check_mark:")
+           });
+             }
+ 
+ 
+ 
+});
+
+client.on('message', message => {
+    if (message.content.startsWith("رابط")) {
+ 
+  message.channel.createInvite({
+        thing: true,
+        maxUses: 100,
+        maxAge: 86400
+    }).then(invite =>
+      message.author.sendMessage(invite.url)
+    )
+    const embed = new Discord.RichEmbed()
+        .setColor("RANDOM")
+        .setDescription("| :white_check_mark:  | :heart:  تم ارسال الرابط على الخاص  ")
+      message.channel.sendEmbed(embed).then(message => {message.delete(10000)})
+              const Embed11 = new Discord.RichEmbed()
+        .setColor("RANDOM")
+                .setAuthor(message.guild.name, message.guild.iconURL)
+        .setDescription(`
+**
+---------------------
+-[${message.guild.name}]  هذا هو رابط سيرفر
+---------------------
+-هذا الرابط صالح ل 100 مستخدم فقط
+---------------------
+-هذا الرابط صالح لمده 24 ساعه فقط
+---------------------
+**`)
+      message.author.sendEmbed(Embed11)
+    }
+});
+ 
+ 
+client.on('message', message => {
+if (message.content.startsWith(prefix+"!!makechat")) {
+    var args = message.content.split(" ").slice(1);
+    var argrst = args.join(' ');
+                message.guild.createChannel(`${argrst}`, 'text')
+      }
+
+	
+client.on('message', message => {
+if (message.content.startsWith(prefix+"حط الامر هنا")) {
+    var args = message.content.split(" ").slice(1);
+    var argrst = args.join(' ');
+                message.guild.createChannel(`${argrst}`,'voice')
+         
+        }
+
+client.on('message', message => {
+  if (true) {
+if (message.content === '.invite') {
+      message.author.send('  رابط بوتك  |  تفضل ربط البوت     ').catch(e => console.log(e.stack));
+ 
+    }
+   }
+  });
+ 
+ 
+client.on('message', message => {
+     if (message.content === ".invite") {
+     let embed = new Discord.RichEmbed()
+  .setAuthor(message.author.username)
+  .setColor("#9B59B6")
+  .addField(" Done | تــــم" , " |  تــــم ارســالك في الخــاص")
+     
+     
+     
+  message.channel.sendEmbed(embed);
+    }
+}); 
+
+	
+});
 client.on('message', message => {
     if (message.content === 'general_commands') {
         let helpEmbed = new Discord.RichEmbed()
